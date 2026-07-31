@@ -147,6 +147,14 @@ func recoverPubKeyFromHexSign(msg, sign string) ([]byte, error) {
 func VerifyUtxoCoin(coin, addr, msg, sign1, sign2, script string) error {
 	var pub1, pub2 []byte
 	var err error
+
+	// P2TR is signed per BIP-322 with Schnorr, which is not a recoverable
+	// signature scheme, so the pubkey-recovery path below cannot apply. The
+	// signing key is taken from the address itself instead.
+	if GuessUtxoCoinAddressType(addr) == "P2TR" {
+		return VerifyBip322P2TR(addr, msg, sign1)
+	}
+
 	// recover pub1 and pub2 from sign1 and sign2
 	if sign1 != "" && sign1 != "null" && sign1 != "\\N" {
 		pub1, err = UtxoCoinSigToPubKey(coin, msg, sign1)
@@ -420,12 +428,21 @@ func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
 		}
 		recoverAddrs = append(recoverAddrs, rAddr)
 	case "ADA":
-		// ADA addresses use ed25519 + Blake2b-224 + Bech32 encoding
-		rAddr, err := GetAdaAddressFromPublicKey(pubkey)
+		// ADA addresses use ed25519 + Blake2b-224 + Bech32 encoding.
+		//
+		// The address is not rebuilt from the public key, because Base
+		// (addr1q...) and Pointer addresses also commit to a staking credential
+		// or chain pointer that no payment key can derive. The address is
+		// decoded instead and the payment credential it carries is compared,
+		// which covers Enterprise (addr1v...) addresses by the same path.
+		matched, err := AdaAddressMatchesPubKey(addr, pubkey)
 		if err != nil {
 			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, coin, addr, err)
 		}
-		recoverAddrs = append(recoverAddrs, rAddr)
+		if !matched {
+			return fmt.Errorf("payment credential not match, coin:%s, addr:%s", coin, addr)
+		}
+		return nil
 	case "NEAR", "HBAR", "SC", "IOTA":
 		return nil
 	default:

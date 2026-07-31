@@ -214,6 +214,11 @@ func GetZECMainNetParams() *chaincfg.Params {
 }
 
 func GuessUtxoCoinAddressType(address string) string {
+	// Checked before the bech32 patterns below: "^bc1[0-9a-zA-Z]{11,71}$" also
+	// matches bc1p... taproot addresses and would report them as P2WSH.
+	if IsP2TRAddress(address) {
+		return "P2TR"
+	}
 	match1, _ := regexp.MatchString("^[1-9A-Za-z]{26,35}$", address)
 	if match1 {
 		if address[0:1] == "1" || address[0:1] == "L" || address[0:1] == "X" || address[0:1] == "G" || address[0:1] == "t1" || address[0:1] == "D" || address[0:1] == "Q" || address[0:1] == "R" {

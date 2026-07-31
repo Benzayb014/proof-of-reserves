@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/btcsuite/btcd/btcutil/bech32"
 	"github.com/dchest/blake2b"
 	"github.com/filecoin-project/go-address"
 	builtintypes "github.com/filecoin-project/go-state-types/builtin"
@@ -124,6 +125,72 @@ func GetAdaAddressFromPublicKey(publicKeyHex string) (string, error) {
 
 	// Encode using Bech32 with "addr" human-readable part
 	return encodeBech32("addr", addressData)
+}
+
+// adaPaymentKeyHashLen is the size of a Blake2b-224 credential hash in a
+// Shelley address.
+const adaPaymentKeyHashLen = 28
+
+// AdaAddressMatchesPubKey reports whether a Cardano Shelley address carries
+// publicKeyHex as its payment credential.
+//
+// GetAdaAddressFromPublicKey can only rebuild an Enterprise address, which
+// holds a payment credential and nothing else. A Base address (addr1q...) also
+// commits to a staking credential, and a Pointer address to a chain pointer;
+// neither can be derived from the payment key, so those addresses can never be
+// reproduced from the key alone. This checks the other direction instead: it
+// decodes the address and compares the payment credential it carries.
+//
+// Only the payment credential is compared. On Cardano that credential alone
+// determines who may spend the address' UTXOs, which is what address ownership
+// means here; the staking credential merely directs staking rewards. One
+// payment key therefore matches every address built from it regardless of the
+// staking part, and each such address is genuinely spendable by that key.
+//
+// Addresses whose payment credential is a script hash are rejected: a script is
+// not a public key, so no key can prove ownership of one.
+func AdaAddressMatchesPubKey(addr, publicKeyHex string) (bool, error) {
+	publicKeyBytes, err := Decode(publicKeyHex)
+	if err != nil {
+		return false, fmt.Errorf("invalid public key: %v", err)
+	}
+	if len(publicKeyBytes) != 32 {
+		return false, fmt.Errorf("invalid payment key length: expected 32, got %d", len(publicKeyBytes))
+	}
+
+	// DecodeNoLimit, not Decode: Cardano waives bech32's 90-character cap, and
+	// a Base address runs to 103 characters.
+	hrp, data5, err := bech32.DecodeNoLimit(strings.ToLower(addr))
+	if err != nil {
+		return false, fmt.Errorf("invalid bech32 address: %v", err)
+	}
+	if hrp != "addr" {
+		return false, fmt.Errorf("unexpected address prefix %q, want \"addr\"", hrp)
+	}
+	raw, err := bech32.ConvertBits(data5, 5, 8, false)
+	if err != nil {
+		return false, fmt.Errorf("invalid bech32 payload: %v", err)
+	}
+	if len(raw) < 1+adaPaymentKeyHashLen {
+		return false, fmt.Errorf("address payload too short: %d bytes", len(raw))
+	}
+
+	// Header byte: high nibble is the address type, low nibble the network id.
+	addrType := raw[0] >> 4
+	networkID := raw[0] & 0x0f
+	if networkID != 1 {
+		return false, fmt.Errorf("not a mainnet address, network id %d", networkID)
+	}
+	// Types 0, 2, 4 and 6 carry a payment key hash; the odd types carry a
+	// payment script hash.
+	switch addrType {
+	case 0, 2, 4, 6:
+	default:
+		return false, fmt.Errorf("address type %d has no payment key hash", addrType)
+	}
+
+	paymentHash := raw[1 : 1+adaPaymentKeyHashLen]
+	return bytes.Equal(paymentHash, calculateBlake2b224(publicKeyBytes)), nil
 }
 
 // GetNearAddressFromPublicKey generates a NEAR address from a public key
