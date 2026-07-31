@@ -33,11 +33,7 @@ var (
 )
 
 func VerifyBETH(addr, msg, sign string) error {
-	coin := "BETH"
-	msgHeader, exist := PorCoinMessageSignatureHeaderMap[coin]
-	if !exist {
-		return fmt.Errorf("invalid coin type %s", coin)
-	}
+	msgHeader := MsgHeaderForNetwork("BETH")
 	hash := HashEvmCoinTypeMsg(msgHeader, msg)
 	var p [48]byte
 	var h [32]byte
@@ -90,11 +86,8 @@ func verifyTRX(addr, msg, sign string, hashFunc func(string) []byte) error {
 	return nil
 }
 
-func UtxoCoinSigToPubKey(coin, msg, sign string) ([]byte, error) {
-	msgHeader, exist := PorCoinMessageSignatureHeaderMap[coin]
-	if !exist {
-		return nil, fmt.Errorf("invalid coin type %s", coin)
-	}
+func UtxoCoinSigToPubKey(network, msg, sign string) ([]byte, error) {
+	msgHeader := MsgHeaderForNetwork(network)
 
 	// 0x hex signatures use EVM-style encoding (R|S|V) with OKX/ECDSA hash
 	if has0xPrefix(sign) {
@@ -105,11 +98,11 @@ func UtxoCoinSigToPubKey(coin, msg, sign string) ([]byte, error) {
 	hash := HashUtxoCoinTypeMsg(msgHeader, msg)
 	b, err := base64.StdEncoding.DecodeString(sign)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode UTXO signature, coin:%s, error:%v", coin, err)
+		return nil, fmt.Errorf("failed to decode UTXO signature, coin:%s, error:%v", network, err)
 	}
 	pub, ok, err := secp_ecdsa.RecoverCompact(b, hash)
 	if err != nil || !ok || pub == nil {
-		return nil, fmt.Errorf("failed to recover UTXO public key from signature, coin:%s, error:%v", coin, err)
+		return nil, fmt.Errorf("failed to recover UTXO public key from signature, coin:%s, error:%v", network, err)
 	}
 	return pub.SerializeCompressed(), nil
 }
@@ -144,7 +137,7 @@ func recoverPubKeyFromHexSign(msg, sign string) ([]byte, error) {
 	return nil, fmt.Errorf("failed to recover public key from hex signature, v=%d", v)
 }
 
-func VerifyUtxoCoin(coin, addr, msg, sign1, sign2, script string) error {
+func VerifyUtxoCoin(network, addr, msg, sign1, sign2, script string) error {
 	var pub1, pub2 []byte
 	var err error
 
@@ -157,24 +150,24 @@ func VerifyUtxoCoin(coin, addr, msg, sign1, sign2, script string) error {
 
 	// recover pub1 and pub2 from sign1 and sign2
 	if sign1 != "" && sign1 != "null" && sign1 != "\\N" {
-		pub1, err = UtxoCoinSigToPubKey(coin, msg, sign1)
+		pub1, err = UtxoCoinSigToPubKey(network, msg, sign1)
 		if err != nil {
 			return err
 		}
 	}
 	if sign2 != "" && sign2 != "null" && sign2 != "\\N" {
-		pub2, err = UtxoCoinSigToPubKey(coin, msg, sign2)
+		pub2, err = UtxoCoinSigToPubKey(network, msg, sign2)
 		if err != nil {
 			return err
 		}
 	}
 
-	return VerifyUtxoCoinSig(coin, addr, script, pub1, pub2)
+	return VerifyUtxoCoinSig(network, addr, script, pub1, pub2)
 }
 
-func VerifyUtxoCoinSig(coin, addr, script string, pub1, pub2 []byte) error {
+func VerifyUtxoCoinSig(network, addr, script string, pub1, pub2 []byte) error {
 	mainNetParams := &chaincfg.Params{}
-	coinAddressType := PorCoinAddressTypeMap[coin]
+	coinAddressType := NetworkAddressType(network)
 	// get main net params
 	switch coinAddressType {
 	case "BTC":
@@ -216,42 +209,42 @@ func VerifyUtxoCoinSig(coin, addr, script string, pub1, pub2 []byte) error {
 	case "P2PKH":
 		addrPub, err := btcutil.NewAddressPubKey(pub1, mainNetParams)
 		if err != nil || addrPub.EncodeAddress() != addr {
-			return fmt.Errorf("address not match,coin: %s, addr: %s, recoverAddr: %s", coin, addr, addrPub.EncodeAddress())
+			return fmt.Errorf("address not match,coin: %s, addr: %s, recoverAddr: %s", network, addr, addrPub.EncodeAddress())
 		}
 	case "P2SH":
 		if script == "" {
-			return fmt.Errorf("P2SH address requires script, but script is empty, coin:%s, addr:%s", coin, addr)
+			return fmt.Errorf("P2SH address requires script, but script is empty, coin:%s, addr:%s", network, addr)
 		}
 		addrPub, err := btcutil.NewAddressScriptHash(MustDecode(script), mainNetParams)
 		if err != nil {
-			return fmt.Errorf("get NewAddressScriptHash failed, coin:%s, addr:%s, error:%v", coin, addr, err)
+			return fmt.Errorf("get NewAddressScriptHash failed, coin:%s, addr:%s, error:%v", network, addr, err)
 		}
 		if addrPub.EncodeAddress() != addr {
-			return fmt.Errorf("address not match, coin:%s, addr:%s, recoverAddr:%s", coin, addr, addrPub.EncodeAddress())
+			return fmt.Errorf("address not match, coin:%s, addr:%s, recoverAddr:%s", network, addr, addrPub.EncodeAddress())
 		}
 		addrPub1, err := btcutil.NewAddressPubKey(pub1, mainNetParams)
 		if err != nil {
-			return fmt.Errorf("get pub1 NewAddressPubKey failed, coin:%s, addr:%s, error: %v", coin, addr, err)
+			return fmt.Errorf("get pub1 NewAddressPubKey failed, coin:%s, addr:%s, error: %v", network, addr, err)
 		}
 		addr1 := addrPub1.EncodeAddress()
 		addrPub2, err := btcutil.NewAddressPubKey(pub2, mainNetParams)
 		if err != nil {
-			return fmt.Errorf("get pub2 NewAddressPubKey failed, coin:%s, addr:%s, error:%v", coin, addr, err)
+			return fmt.Errorf("get pub2 NewAddressPubKey failed, coin:%s, addr:%s, error:%v", network, addr, err)
 		}
 		addr2 := addrPub2.EncodeAddress()
 		typ, pubs, _, err := txscript.ExtractPkScriptAddrs(MustDecode(script), mainNetParams)
 		if typ != txscript.MultiSigTy {
-			return fmt.Errorf("script type not match, coin:%s, addr:%s, srcType:%d, type:%d", coin, addr, txscript.MultiSigTy, typ)
+			return fmt.Errorf("script type not match, coin:%s, addr:%s, srcType:%d, type:%d", network, addr, txscript.MultiSigTy, typ)
 		}
 		if err != nil {
-			return fmt.Errorf("script ExtractPkScriptAddrs failed, coin:%s, addr:%s, error: %v", coin, addr, err)
+			return fmt.Errorf("script ExtractPkScriptAddrs failed, coin:%s, addr:%s, error: %v", network, addr, err)
 		}
 		m := map[string]struct{}{addr1: {}, addr: {}, addr2: {}}
 		for _, v := range pubs {
 			delete(m, v.EncodeAddress())
 		}
 		if len(m) > 1 {
-			return fmt.Errorf("script address not match the pubs, coin:%s, addr:%s", coin, addr)
+			return fmt.Errorf("script address not match the pubs, coin:%s, addr:%s", network, addr)
 		}
 	case "P2WSH":
 		pkScript := MustDecode(script)
@@ -260,44 +253,41 @@ func VerifyUtxoCoinSig(coin, addr, script string, pub1, pub2 []byte) error {
 		witnessProg := h.Sum(nil)
 		addressWitnessScriptHash, err := btcutil.NewAddressWitnessScriptHash(witnessProg, mainNetParams)
 		if err != nil {
-			return fmt.Errorf("get NewAddressWitnessScriptHash failed, coin:%s, addr:%s, error:%v", coin, addr, err)
+			return fmt.Errorf("get NewAddressWitnessScriptHash failed, coin:%s, addr:%s, error:%v", network, addr, err)
 		}
 		if addressWitnessScriptHash.EncodeAddress() != addr {
-			return fmt.Errorf("address not match,coin: %s, addr: %s, recoverAddr: %s", coin, addr, addressWitnessScriptHash.EncodeAddress())
+			return fmt.Errorf("address not match,coin: %s, addr: %s, recoverAddr: %s", network, addr, addressWitnessScriptHash.EncodeAddress())
 		}
 		addrPub1, err := btcutil.NewAddressPubKey(pub1, mainNetParams)
 		if err != nil {
-			return fmt.Errorf("get pub1 NewAddressPubKey failed, coin:%s, addr:%s, error: %v", coin, addr, err)
+			return fmt.Errorf("get pub1 NewAddressPubKey failed, coin:%s, addr:%s, error: %v", network, addr, err)
 		}
 		addr1 := addrPub1.EncodeAddress()
 		addrPub2, err := btcutil.NewAddressPubKey(pub2, mainNetParams)
 		if err != nil {
-			return fmt.Errorf("get pub2 NewAddressPubKey failed, coin:%s, addr:%s, error: %v", coin, addr, err)
+			return fmt.Errorf("get pub2 NewAddressPubKey failed, coin:%s, addr:%s, error: %v", network, addr, err)
 		}
 		addr2 := addrPub2.EncodeAddress()
 		typ, pubs, _, err := txscript.ExtractPkScriptAddrs(MustDecode(script), mainNetParams)
 		if typ != txscript.MultiSigTy {
-			return fmt.Errorf("script type not match, coin:%s, addr:%s, srcType:%d, type:%d", coin, addr, txscript.MultiSigTy, typ)
+			return fmt.Errorf("script type not match, coin:%s, addr:%s, srcType:%d, type:%d", network, addr, txscript.MultiSigTy, typ)
 		}
 		if err != nil {
-			return fmt.Errorf("script ExtractPkScriptAddrs failed, coin:%s, addr:%s, error: %v", coin, addr, err)
+			return fmt.Errorf("script ExtractPkScriptAddrs failed, coin:%s, addr:%s, error: %v", network, addr, err)
 		}
 		m := map[string]struct{}{addr1: {}, addr: {}, addr2: {}}
 		for _, v := range pubs {
 			delete(m, v.EncodeAddress())
 		}
 		if len(m) > 1 {
-			return fmt.Errorf("script address not match the pubs, coin:%s, addr:%s", coin, addr)
+			return fmt.Errorf("script address not match the pubs, coin:%s, addr:%s", network, addr)
 		}
 	}
 	return nil
 }
 
-func VerifyEvmCoin(coin, addr, msg, sign string) error {
-	msgHeader, exist := PorCoinMessageSignatureHeaderMap[coin]
-	if !exist {
-		return fmt.Errorf("invalid coin type %s, addr:%s", coin, addr)
-	}
+func VerifyEvmCoin(network, addr, msg, sign string) error {
+	msgHeader := MsgHeaderForNetwork(network)
 	hash := HashEvmCoinTypeMsg(msgHeader, msg)
 	s := MustDecode(sign)
 	pub, err := sigToPub(hash, s)
@@ -308,10 +298,7 @@ func VerifyEvmCoin(coin, addr, msg, sign string) error {
 	pubToEcdsa := pub.ToECDSA()
 	recoverAddr := PubkeyToAddress(*pubToEcdsa).String()
 
-	addrType, exist := PorCoinAddressTypeMap[coin]
-	if !exist {
-		return fmt.Errorf("invalid coin type %s, addr:%s", coin, addr)
-	}
+	addrType := NetworkAddressType(network)
 	switch addrType {
 	case "FIL":
 		if strings.HasPrefix(strings.ToLower(addr), "0x") {
@@ -321,7 +308,7 @@ func VerifyEvmCoin(coin, addr, msg, sign string) error {
 			// f410 address, convert to filecoin address
 			filAddress, err := ConvertEthAddressToFilecoinAddress(PubkeyToAddress(*pubToEcdsa).Bytes())
 			if err != nil {
-				return fmt.Errorf("convert eth address to fil address failed, coin:%s, addr:%s, error:%v", coin, addr, err)
+				return fmt.Errorf("convert eth address to fil address failed, coin:%s, addr:%s, error:%v", network, addr, err)
 			}
 			recoverAddr = filAddress.String()
 		}
@@ -333,40 +320,34 @@ func VerifyEvmCoin(coin, addr, msg, sign string) error {
 		if !VerifySignAddr(HexToAddress(addr), hash, s) {
 			// 获取恢复出来的地址用于错误信息
 			recoveredAddr := PubkeyToAddress(*pubToEcdsa).String()
-			return fmt.Errorf("ETH address verification failed, coin:%s, expected:%s, recovered:%s", coin, addr, recoveredAddr)
+			return fmt.Errorf("ETH address verification failed, coin:%s, expected:%s, recovered:%s", network, addr, recoveredAddr)
 		}
 	}
 
 	if !strings.EqualFold(addr, recoverAddr) {
-		return fmt.Errorf("recovery address not match, coin:%s, recoverAddr:%s, addr:%s", coin, recoverAddr, addr)
+		return fmt.Errorf("recovery address not match, coin:%s, recoverAddr:%s, addr:%s", network, recoverAddr, addr)
 	}
 
 	return nil
 }
 
-func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
-	msgHeader, exist := PorCoinMessageSignatureHeaderMap[coin]
-	if !exist {
-		return fmt.Errorf("invalid coin type %s, addr:%s", coin, addr)
-	}
+func VerifyEd25519Coin(network, addr, msg, sign, pubkey string) error {
+	msgHeader := MsgHeaderForNetwork(network)
 	hash := HashEd25519Msg(msgHeader, msg)
 	res, _ := Decode(sign)
 	pubkeyBytes, _ := Decode(pubkey)
 	if ok := ed25519.Verify(pubkeyBytes, hash, res); !ok {
-		return fmt.Errorf("ED25519 signature verification failed, coin:%s, addr:%s", coin, addr)
+		return fmt.Errorf("ED25519 signature verification failed, coin:%s, addr:%s", network, addr)
 	}
 
-	addrType, exist := PorCoinAddressTypeMap[coin]
-	if !exist {
-		return fmt.Errorf("invalid coin type %s, addr:%s", coin, addr)
-	}
+	addrType := NetworkAddressType(network)
 	var recoverAddrs []string
 	switch addrType {
 	case "SOL":
 		out := [32]byte{}
 		byteCount := len(pubkeyBytes)
 		if byteCount == 0 {
-			return fmt.Errorf("empty public key for SOL address generation, coin:%s, addr:%s", coin, addr)
+			return fmt.Errorf("empty public key for SOL address generation, coin:%s, addr:%s", network, addr)
 		}
 		max := 32
 		if byteCount < max {
@@ -386,7 +367,7 @@ func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
 		copy(k[1:], pubkeyBytes)
 		publicKeyHash, err := blake2b.New256(nil)
 		if err != nil {
-			return fmt.Errorf("invalid publicKey, coin:%s, recoverAddrs:%v, addr:%s", coin, recoverAddrs, addr)
+			return fmt.Errorf("invalid publicKey, coin:%s, recoverAddrs:%v, addr:%s", network, recoverAddrs, addr)
 		}
 		publicKeyHash.Write(k)
 		h := publicKeyHash.Sum(nil)
@@ -395,14 +376,14 @@ func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
 	case "TON":
 		walletV3, err := tonWallet.AddressFromPubKey(pubkeyBytes, tonWallet.V3, tonWallet.DefaultSubwallet)
 		if err != nil {
-			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, coin, addr, err)
+			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, network, addr, err)
 		}
 		recoverAddrs = append(recoverAddrs, walletV3.String())
 		recoverAddrs = append(recoverAddrs, walletV3.Bounce(false).String())
 
 		walletHighload, err := tonWallet.AddressFromPubKey(pubkeyBytes, tonWallet.ConfigHighloadV3{MessageTTL: 60 * 60 * 12}, 4269)
 		if err != nil {
-			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, coin, addr, err)
+			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, network, addr, err)
 		}
 		recoverAddrs = append(recoverAddrs, walletHighload.String())
 		recoverAddrs = append(recoverAddrs, walletHighload.Bounce(false).String())
@@ -415,7 +396,7 @@ func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
 		netID := ss58Network[addrType]
 		rAddr, err := GetSubstrateAddressFromPublicKey(pubkey, netID)
 		if err != nil {
-			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, coin, addr, err)
+			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, network, addr, err)
 		}
 		recoverAddrs = append(recoverAddrs, rAddr)
 	case "XLM", "PI", "STELLAR":
@@ -424,7 +405,7 @@ func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
 		// followed by base32 encoding with checksum
 		rAddr, err := GetXlmAddressFromPublicKey(pubkey)
 		if err != nil {
-			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, coin, addr, err)
+			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, network, addr, err)
 		}
 		recoverAddrs = append(recoverAddrs, rAddr)
 	case "ADA":
@@ -437,10 +418,10 @@ func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
 		// which covers Enterprise (addr1v...) addresses by the same path.
 		matched, err := AdaAddressMatchesPubKey(addr, pubkey)
 		if err != nil {
-			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, coin, addr, err)
+			return fmt.Errorf("%s, coin: %s, addr: %s, error: %v", ErrInvalidSign, network, addr, err)
 		}
 		if !matched {
-			return fmt.Errorf("payment credential not match, coin:%s, addr:%s", coin, addr)
+			return fmt.Errorf("payment credential not match, coin:%s, addr:%s", network, addr)
 		}
 		return nil
 	case "NEAR", "HBAR", "SC", "IOTA":
@@ -455,28 +436,22 @@ func VerifyEd25519Coin(coin, addr, msg, sign, pubkey string) error {
 		}
 	}
 
-	return fmt.Errorf("recovery address not match, coin:%s, recoverAddrs:%v, addr:%s", coin, recoverAddrs, addr)
+	return fmt.Errorf("recovery address not match, coin:%s, recoverAddrs:%v, addr:%s", network, recoverAddrs, addr)
 }
 
-func VerifyEcdsaCoin(coin, addr, msg, sign string) error {
-	msgHeader, exist := PorCoinMessageSignatureHeaderMap[coin]
-	if !exist {
-		return fmt.Errorf("invalid coin type %s, addr:%s", coin, addr)
-	}
+func VerifyEcdsaCoin(network, addr, msg, sign string) error {
+	msgHeader := MsgHeaderForNetwork(network)
 	hash := HashEcdsaMsg(msgHeader, msg)
 	s := MustDecode(sign)
 	pub, err := sigToPub(hash, s)
 	if err != nil {
-		return fmt.Errorf("failed to recover public key from signature, coin:%s, addr:%s, error:%v", coin, addr, err)
+		return fmt.Errorf("failed to recover public key from signature, coin:%s, addr:%s, error:%v", network, addr, err)
 	}
 	pubKey := pub.SerializeUncompressed()
 	pubKeyCompressed := pub.SerializeCompressed()
 
 	var recoverAddr string
-	addrType, exist := PorCoinAddressTypeMap[coin]
-	if !exist {
-		return fmt.Errorf("invalid coin type %s, addr:%s", coin, addr)
-	}
+	addrType := NetworkAddressType(network)
 	switch addrType {
 	case "FIL":
 		pubKeyHash := hash_cal(pubKey, payloadHashConfig)
@@ -545,18 +520,18 @@ func VerifyEcdsaCoin(coin, addr, msg, sign string) error {
 	}
 
 	if !strings.EqualFold(recoverAddr, addr) {
-		return fmt.Errorf("recovery address not match, coin:%s, recoverAddr:%s, addr:%s", coin, recoverAddr, addr)
+		return fmt.Errorf("recovery address not match, coin:%s, recoverAddr:%s, addr:%s", network, recoverAddr, addr)
 	}
 
 	return nil
 }
 
-func VerifyStarkCoin(coin, addr, msg, sign, publicKey string) error {
+func VerifyStarkCoin(network, addr, msg, sign, publicKey string) error {
 	if VerifyStarknetEIP712(addr, msg, publicKey, sign) {
 		return nil
 	}
 
-	return fmt.Errorf("recovery address not match, coin:%s, addr:%s", coin, addr)
+	return fmt.Errorf("recovery address not match, coin:%s, addr:%s", network, addr)
 }
 
 func VerifyEcdsaCoinWithPub(msg, sign, publicKey string) error {
@@ -599,15 +574,15 @@ func VerifyEcdsaCoinWithPub(msg, sign, publicKey string) error {
 	return nil
 }
 
-func VerifyEOSCoin(coin, addr, msg, sign, publicKey string) error {
+func VerifyEOSCoin(network, addr, msg, sign, publicKey string) error {
 	if publicKey == "" || publicKey == "null" {
-		return fmt.Errorf("EOS coin %s missing public key", coin)
+		return fmt.Errorf("EOS coin %s missing public key", network)
 	}
 
 	// Convert EOS signature to normal ECDSA format
 	normalSig, err := convertEOSSignatureToECDSA(sign)
 	if err != nil {
-		return fmt.Errorf("failed to convert EOS signature to ECDSA format, coin:%s, addr:%s, error:%v", coin, addr, err)
+		return fmt.Errorf("failed to convert EOS signature to ECDSA format, coin:%s, addr:%s, error:%v", network, addr, err)
 	}
 
 	// Hash the message using ECDSA format (same as OKX)
@@ -616,13 +591,13 @@ func VerifyEOSCoin(coin, addr, msg, sign, publicKey string) error {
 	// Recover public key using normal ECDSA
 	recoveredPub, err := sigToPub(hash, normalSig)
 	if err != nil {
-		return fmt.Errorf("failed to recover public key from ECDSA signature, coin:%s, addr:%s, error:%v", coin, addr, err)
+		return fmt.Errorf("failed to recover public key from ECDSA signature, coin:%s, addr:%s, error:%v", network, addr, err)
 	}
 
 	// Convert EOS public key to normal hex format
 	expectedPubKeyHex, err := eosPublicKeyToHex(publicKey)
 	if err != nil {
-		return fmt.Errorf("failed to convert EOS public key to hex, coin:%s, addr:%s, error:%v", coin, addr, err)
+		return fmt.Errorf("failed to convert EOS public key to hex, coin:%s, addr:%s, error:%v", network, addr, err)
 	}
 
 	// Convert recovered public key to compressed hex format
@@ -630,7 +605,7 @@ func VerifyEOSCoin(coin, addr, msg, sign, publicKey string) error {
 
 	// Compare the public keys
 	if !strings.EqualFold(expectedPubKeyHex, recoveredPubKeyHex) {
-		return fmt.Errorf("EOS public key mismatch, coin:%s, expected:%s, recovered:%s", coin, expectedPubKeyHex, recoveredPubKeyHex)
+		return fmt.Errorf("EOS public key mismatch, coin:%s, expected:%s, recovered:%s", network, expectedPubKeyHex, recoveredPubKeyHex)
 	}
 
 	return nil
