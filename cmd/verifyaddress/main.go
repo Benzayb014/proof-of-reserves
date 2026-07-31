@@ -69,20 +69,6 @@ func parseLine(line string) []string {
 	return result
 }
 
-// detectFormatOffset inspects a detail-section header and returns the column offset for the
-// report format: 1 when a "Type" column is present (the 12-column format that inserts a Type
-// column right after coin), otherwise 0 for the legacy 11-column format. Every column after
-// coin shifts right by this offset; a missing Type column means the section is parsed exactly
-// as before and each row is treated as non-staking.
-func detectFormatOffset(header []string) int {
-	for _, col := range header {
-		if strings.EqualFold(strings.TrimSpace(col), "Type") {
-			return 1
-		}
-	}
-	return 0
-}
-
 func handle(i int, line string, off int) (coin string, success bool) {
 	if len(line) == 0 {
 		return "", true
@@ -265,7 +251,7 @@ func AddressVerify(cmd *cobra.Command, args []string) {
 			if flag == 1 {
 				flag--
 				// Resolve the detail-section column layout from its header.
-				off = detectFormatOffset(strings.Split(temp, ","))
+				off = common.DetectPorFormatOffset(strings.Split(temp, ","))
 			}
 			continue
 		}
