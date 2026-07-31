@@ -10,7 +10,7 @@ import (
 // Verify single line data (single-threaded version, only handle StarkNet)
 func verifyCSVLineStarknetOnly(coin, addr, msg, sign1, sign2, publicKey, digitalAsset string, lineNumber int, t *testing.T) (bool, string, string) {
 	// Check if it's StarkNet coin, skip if not
-	coinType, exists := PorCoinTypeMap[coin]
+	coinType, exists := NetworkType(coin)
 	if !exists || coinType != StarkCoinType {
 		return true, coin, ""
 	}
@@ -21,7 +21,7 @@ func verifyCSVLineStarknetOnly(coin, addr, msg, sign1, sign2, publicKey, digital
 // Verify single line data (multithreaded version, skip StarkNet)
 func verifyCSVLineMultithread(coin, addr, msg, sign1, sign2, publicKey, owner1, owner2, digitalAsset string, lineNumber int, t *testing.T) (bool, string, string) {
 	// Check if it's StarkNet coin, skip multithreaded verification if yes
-	coinType, exists := PorCoinTypeMap[coin]
+	coinType, exists := NetworkType(coin)
 	if exists && coinType == StarkCoinType {
 		return true, coin, ""
 	}
@@ -40,7 +40,7 @@ func verifyCSVLineInternal(coin, addr, msg, sign1, sign2, publicKey, owner1, own
 	}
 
 	// Get coin verification type
-	coinType, exists := PorCoinTypeMap[coin]
+	coinType, exists := NetworkType(coin)
 	if !exists {
 		// If coin is not in mapping table, try using default ECDSA verification
 		coinType = EcdsaCoinType
