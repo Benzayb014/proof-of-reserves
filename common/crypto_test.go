@@ -141,7 +141,7 @@ func TestVerifyEvmCoinSignature(t *testing.T) {
 			sign: "0x98767aedf0ed8bad7413e7c2e6b134ae6baaf5d913c9a8e2659b93922edfbca90cf5fc97e6385aec280a2b7dcdf7d2a95e91f0d99632ab7ed0c167e5628d3d841c",
 		},
 		{
-			coin: "BABYDOGE-BSC",
+			coin: "BSC",
 			addr: "0x07e47ed3c5a8ff59fb5d1df4051c34da67fc5547",
 			msg:  "hello world",
 			sign: "0x9c271461e5876fac4e5a02aee7a877831a91cee6a24b75cafd8650ac72b2a5e5147e2e90558d4e38d113ff54e734f041687f41268d55ff7850791e1e2833dc061b",
@@ -183,7 +183,7 @@ func TestVerifyEvmCoinSignature(t *testing.T) {
 			sign: "0x20c683960499e200a78d0f3011f821aea901e6cb26371f0d4edd8b64fbf0efb80b147346a8acfb03e037a40ad83d2ef189af3ca9f32f07e99ba644aac1d951d71b",
 		},
 		{
-			coin: "OKB-X1-USDT",
+			coin: "OKB-X1",
 			addr: "0x2d22604d6bbf51839c404aef5c65443e424e0945",
 			msg:  "I am an OKX address",
 			sign: "0x6fc4257d86eac2355cfe3998c6524e5f84af3fed014d03810b4ffca2248d076d2093afc5f4ec7bfea166fcacda81e1cf9f0f707806f9fcfd7d2e3163e456c1981b",
@@ -313,7 +313,7 @@ func TestVerifyEcdsaCoinSignature(t *testing.T) {
 			sign: "0x2fb7d2afb07123b7b7f843d601382f0d13535d3cc620db9bdd062f9d7ed0a6ec00f0fe1a075f882f3679e2c518fb009ebac62cf972f871ad2f40fc2cd85da53f1c",
 		},
 		{
-			coin: "OKB-OKC20",
+			coin: "OKC",
 			addr: "0xeb196a61f9a1e35bf5053b65aaa57c5541dcba86",
 			msg:  "I am an OKX address",
 			sign: "0xe8df58ec46822f86a0a2fb547260ac55caeeb256916a8c2aabcc01cbdfc13ff264992f2127f3e1cc8e45bf936947c50c8ea097602712e6868526d7fccd9273bc1c",
@@ -325,13 +325,13 @@ func TestVerifyEcdsaCoinSignature(t *testing.T) {
 			sign: "0xa181d622f9a1d1aac327c026a46d11c95a44fb8994a07d232a15b79c12d225a7059db547c0a79b67605f68930d8d0f93a9939589c4fc70041e66322efc61a2421b",
 		},
 		{
-			coin: "LTCK-OKC20",
+			coin: "OKC",
 			addr: "0xeb196a61f9a1e35bf5053b65aaa57c5541dcba86",
 			msg:  "I am an OKX address",
 			sign: "0xe8df58ec46822f86a0a2fb547260ac55caeeb256916a8c2aabcc01cbdfc13ff264992f2127f3e1cc8e45bf936947c50c8ea097602712e6868526d7fccd9273bc1c",
 		},
 		{
-			coin: "LTCK-OKC20",
+			coin: "OKC",
 			addr: "0x4a11078a99b118bbfee78a5c187d98d264360433",
 			msg:  "I am an OKX address",
 			sign: "0xee5e609b94842cca32b0f482351bbd2e76e6730dfb146337a077fd03dc6219b62ed1d4e4daf243cb2ba50a12ba47e5f76b8d22e91e8a9c7d228b22a2b236a0ad1b",
