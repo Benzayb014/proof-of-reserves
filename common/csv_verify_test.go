@@ -11,7 +11,7 @@ import (
 
 // Multithreaded CSV file verification
 func TestVerifyCSVFileMultithread(t *testing.T) {
-	csvFileName := "../example/merged - Sheet1.csv"
+	csvFileName := "../example/dq-por Sheet1.csv"
 
 	// Temporary marking function switch - can be deleted after testing
 	enableMarking := true // Set to false to disable marking function
@@ -70,6 +70,8 @@ func TestVerifyCSVFileMultithread(t *testing.T) {
 	scanner = bufio.NewScanner(file)
 	lineNumber := 0
 	processedCount := 0
+	netIdx := 1 // digitalAsset,network,address,... layout
+	statusFiltered := true
 
 	for scanner.Scan() {
 		lineNumber++
@@ -77,6 +79,15 @@ func TestVerifyCSVFileMultithread(t *testing.T) {
 
 		// Skip empty lines and header
 		if line == "" || lineNumber == 1 {
+			// digitalasset,chain,network,... layout: network sits after the
+			// chain column and there is no status column
+			if lineNumber == 1 {
+				cols := strings.Split(strings.ToLower(line), ",")
+				if len(cols) > 1 && strings.TrimSpace(cols[1]) == "chain" {
+					netIdx = 2
+					statusFiltered = false
+				}
+			}
 			continue
 		}
 
@@ -90,7 +101,7 @@ func TestVerifyCSVFileMultithread(t *testing.T) {
 
 		// Parse CSV line (handle JSON in fields)
 		fields := ParseCSVLine(line)
-		if len(fields) < 7 {
+		if len(fields) < netIdx+6 {
 			// Format error, add directly to failed results
 			result := VerifyResult{
 				Line: CSVLine{
@@ -109,7 +120,7 @@ func TestVerifyCSVFileMultithread(t *testing.T) {
 		}
 
 		// Skip rows where status is not 5
-		if len(fields) >= 10 {
+		if statusFiltered && len(fields) >= 10 {
 			status := strings.TrimSpace(fields[9])
 			if status != "5" {
 				collector.AddSkip()
@@ -121,21 +132,21 @@ func TestVerifyCSVFileMultithread(t *testing.T) {
 		csvLine := CSVLine{
 			LineNumber:     lineNumber,
 			DigitalAsset:   strings.TrimSpace(fields[0]),
-			Network:        strings.TrimSpace(fields[1]),
-			Address:        strings.TrimSpace(fields[2]),
-			SignedMessage:  strings.TrimSpace(fields[3]),
-			SignedMessage2: strings.TrimSpace(fields[4]),
-			Message:        strings.TrimSpace(fields[5]),
-			PublicKey:      strings.TrimSpace(fields[6]),
+			Network:        strings.TrimSpace(fields[netIdx]),
+			Address:        strings.TrimSpace(fields[netIdx+1]),
+			SignedMessage:  strings.TrimSpace(fields[netIdx+2]),
+			SignedMessage2: strings.TrimSpace(fields[netIdx+3]),
+			Message:        strings.TrimSpace(fields[netIdx+4]),
+			PublicKey:      strings.TrimSpace(fields[netIdx+5]),
 			RawLine:        line,
 		}
 
 		// Parse owner1 and owner2 fields (if exist)
-		if len(fields) > 7 {
-			csvLine.Owner1 = strings.TrimSpace(fields[7])
+		if len(fields) > netIdx+6 {
+			csvLine.Owner1 = strings.TrimSpace(fields[netIdx+6])
 		}
-		if len(fields) > 8 {
-			csvLine.Owner2 = strings.TrimSpace(fields[8])
+		if len(fields) > netIdx+7 {
+			csvLine.Owner2 = strings.TrimSpace(fields[netIdx+7])
 		}
 
 		// Send job to worker pool
