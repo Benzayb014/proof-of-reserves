@@ -89,7 +89,7 @@ var (
 		"CELO": EvmCoinTye, "G": EvmCoinTye, "G_GRAVITY": EvmCoinTye, "GLRM": EvmCoinTye,
 		"SOPHON": EvmCoinTye, "OASYS": EvmCoinTye, "OAS": EvmCoinTye, "ZETA": EvmCoinTye,
 		"POLY_OPERA": EvmCoinTye, "FTM_OPERA": EvmCoinTye, "CRONOS": EvmCoinTye,
-		"MXC_MXC": EvmCoinTye, "FEVM": EvmCoinTye,
+		"MXC_MXC": EvmCoinTye, "FIL_EVM": EvmCoinTye, "FEVM": EvmCoinTye,
 		"XPL": EvmCoinTye, "SEI_EVM": EvmCoinTye, "MONAD": EvmCoinTye,
 		"HYPEREVM": EvmCoinTye, "GUSDT_STABLE": EvmCoinTye, "ETH_KATANA": EvmCoinTye,
 		"FRAX_EVM": EvmCoinTye, "ABSTRACT": EvmCoinTye, "CTXC": EvmCoinTye,
