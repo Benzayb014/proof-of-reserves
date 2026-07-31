@@ -64,39 +64,3 @@ func TestMsgHeaderForNetworkSamples(t *testing.T) {
 		}
 	}
 }
-
-// TestNetworkTablesMatchLegacy cross-checks the new network tables against the
-// legacy coin-keyed maps for every legacy key that survives as a network key.
-// Deleted together with the legacy maps in the final task.
-func TestNetworkTablesMatchLegacy(t *testing.T) {
-	// ASSET-HUB: legacy addr type "ASSET-HUB" and "DOT" both resolve to ss58
-	// network 0; the new table settles on "DOT".
-	// FIL_EVM: legacy coin.go self-contradicts — "FIL_EVM":"ETH" (never hit by
-	// real data, which uses the hyphen spelling) vs "FIL-EVM":"FIL"; the new
-	// table settles on "FIL" because VerifyEvmCoin's FIL branch handles both
-	// 0x and f410 addresses, matching what real Deloitte rows exercised.
-	addrSkip := map[string]bool{"ASSET-HUB": true, "FIL_EVM": true}
-
-	for k, want := range PorCoinTypeMap {
-		if got, ok := PorNetworkTypeMap[NormalizeNetwork(k)]; ok && got != want {
-			t.Errorf("scheme mismatch for legacy key %s: new %q, legacy %q", k, got, want)
-		}
-	}
-	for k, want := range PorCoinMessageSignatureHeaderMap {
-		if _, ok := PorNetworkTypeMap[NormalizeNetwork(k)]; ok {
-			if got := MsgHeaderForNetwork(k); got != want {
-				t.Errorf("header mismatch for legacy key %s: new %q, legacy %q", k, got, want)
-			}
-		}
-	}
-	for k, want := range PorCoinAddressTypeMap {
-		if addrSkip[k] {
-			continue
-		}
-		if _, ok := PorNetworkTypeMap[NormalizeNetwork(k)]; ok {
-			if got := NetworkAddressType(k); got != want {
-				t.Errorf("addr type mismatch for legacy key %s: new %q, legacy %q", k, got, want)
-			}
-		}
-	}
-}
