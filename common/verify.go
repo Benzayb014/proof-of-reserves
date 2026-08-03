@@ -496,6 +496,8 @@ func VerifyEcdsaCoin(network, addr, msg, sign string) error {
 		recoverAddr = PubkeyToAddress(*pubToEcdsa).String()
 	case "ICX":
 		recoverAddr, _ = GenerateICXAddress(pubKey)
+	case "NULS":
+		recoverAddr, _ = GenerateNULSAddress(pubKeyCompressed)
 	case "STX":
 		recoverAddr, _ = stacks.GetAddressFromPublicKey(hex.EncodeToString(pubKey))
 	case "TIA":
@@ -700,6 +702,24 @@ func eosPublicKeyToHex(eosPublicKey string) (string, error) {
 
 	// Convert to hex
 	return hex.EncodeToString(publicKeyBytes), nil
+}
+
+// GenerateNULSAddress derives a NULS mainnet address:
+// "NULSd" + base58(chainId(2 bytes LE, mainnet=1) + type(1 byte, account=1) +
+// RIPEMD160(SHA256(compressed pubkey)) + 1-byte XOR checksum).
+func GenerateNULSAddress(pubKeyCompressed []byte) (string, error) {
+	if len(pubKeyCompressed) != 33 {
+		return "", fmt.Errorf("invalid compressed public key length: %d", len(pubKeyCompressed))
+	}
+	sha := sha256.Sum256(pubKeyCompressed)
+	hasher := ripemd160.New()
+	hasher.Write(sha[:])
+	body := append([]byte{0x01, 0x00, 0x01}, hasher.Sum(nil)...)
+	var checksum byte
+	for _, b := range body {
+		checksum ^= b
+	}
+	return "NULSd" + base58.Encode(append(body, checksum)), nil
 }
 
 func GenerateICXAddress(publicKey []byte) (string, error) {
