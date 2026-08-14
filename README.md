@@ -15,7 +15,7 @@ exceed the exchange's known liabilities to users, in order to confirm the solven
 Download the [latest build](https://github.com/okx/proof-of-reserves/releases/latest) for your operating system and
 architecture. Also, you can build the source by yourself.
 
-Building this open source tool requires Go (version >= 1.17).
+Building this open source tool requires Go (version >= 1.23).
 
 Install dependencies
 

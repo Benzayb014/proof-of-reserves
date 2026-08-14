@@ -69,20 +69,6 @@ func parseLine(line string) []string {
 	return result
 }
 
-// detectFormatOffset inspects a detail-section header and returns the column offset for the
-// report format: 1 when a "Type" column is present (the 12-column format that inserts a Type
-// column right after coin), otherwise 0 for the legacy 11-column format. Every column after
-// coin shifts right by this offset; a missing Type column means the section is parsed exactly
-// as before and each row is treated as non-staking.
-func detectFormatOffset(header []string) int {
-	for _, col := range header {
-		if strings.EqualFold(strings.TrimSpace(col), "Type") {
-			return 1
-		}
-	}
-	return 0
-}
-
 func handle(i int, line string, off int) (coin string, success bool) {
 	if len(line) == 0 {
 		return "", true
@@ -92,7 +78,7 @@ func handle(i int, line string, off int) (coin string, success bool) {
 		fmt.Println(fmt.Sprintf("Fail to verify address signature.The line %d has fewer columns than the report header.", i+1))
 		return "", false
 	}
-	coin, addr, balance, message, sign1, sign2, script := as[0], as[3+off], as[4+off], as[5+off], as[6+off], as[7+off], as[8+off]
+	coin, network, addr, balance, message, sign1, sign2, script := as[0], as[1+off], as[3+off], as[4+off], as[5+off], as[6+off], as[7+off], as[8+off]
 
 	// Recover from panic and print detailed error info
 	defer func() {
@@ -120,13 +106,11 @@ func handle(i int, line string, off int) (coin string, success bool) {
 	}
 
 	coin = strings.ToUpper(coin)
-	totalCoin, exist := common.PorCoinUnitMap[coin]
-	if !exist {
-		fmt.Println(fmt.Sprintf("Fail to verify address signature.The line %d  has invalid coin name, %s", i+1, coin))
-		return coin, false
+	totalCoin := coin
+	if u, exist := common.PorCoinUnitMap[coin]; exist {
+		totalCoin = u
 	}
-	_, exist = coinTotalBalance[totalCoin]
-	if exist {
+	if _, exist := coinTotalBalance[totalCoin]; exist {
 		coinTotalBalance[totalCoin] = coinTotalBalance[totalCoin].Add(val)
 	} else {
 		coinTotalBalance[totalCoin] = val
@@ -141,45 +125,46 @@ func handle(i int, line string, off int) (coin string, success bool) {
 		return coin, false
 	}
 
-	switch common.PorCoinTypeMap[coin] {
+	scheme, _ := common.NetworkType(network)
+	switch scheme {
 	case common.EvmCoinTye:
 		if eoa1 != "" && eoa2 != "" {
-			if err := common.VerifyEvmCoin(coin, eoa1, message, sign1); err != nil {
+			if err := common.VerifyEvmCoin(network, eoa1, message, sign1); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
-			if err := common.VerifyEvmCoin(coin, eoa2, message, sign2); err != nil {
+			if err := common.VerifyEvmCoin(network, eoa2, message, sign2); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
 		} else if eoa1 != "" {
-			if err := common.VerifyEvmCoin(coin, eoa1, message, sign1); err != nil {
+			if err := common.VerifyEvmCoin(network, eoa1, message, sign1); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", eoa1, i+1, err))
 				return coin, false
 			}
 		} else {
-			if err := common.VerifyEvmCoin(coin, addr, message, sign1); err != nil {
+			if err := common.VerifyEvmCoin(network, addr, message, sign1); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
 		}
 	case common.EcdsaCoinType:
 		if eoa1 != "" && eoa2 != "" {
-			if err := common.VerifyEcdsaCoin(coin, eoa1, message, sign1); err != nil {
+			if err := common.VerifyEcdsaCoin(network, eoa1, message, sign1); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
-			if err := common.VerifyEcdsaCoin(coin, eoa2, message, sign2); err != nil {
+			if err := common.VerifyEcdsaCoin(network, eoa2, message, sign2); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
 		} else if eoa1 != "" {
-			if err := common.VerifyEcdsaCoin(coin, eoa1, message, sign1); err != nil {
+			if err := common.VerifyEcdsaCoin(network, eoa1, message, sign1); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
 		} else {
-			if err := common.VerifyEcdsaCoin(coin, addr, message, sign1); err != nil {
+			if err := common.VerifyEcdsaCoin(network, addr, message, sign1); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
@@ -188,12 +173,12 @@ func handle(i int, line string, off int) (coin string, success bool) {
 		// owner mode: when eoa1 (current authentication key, e.g. a rotated APTOS account)
 		// is present, verify against eoa1 instead of the claimed address (mirrors EVM owner mode).
 		if eoa1 != "" {
-			if err := common.VerifyEd25519Coin(coin, eoa1, message, sign1, script); err != nil {
+			if err := common.VerifyEd25519Coin(network, eoa1, message, sign1, script); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", eoa1, i+1, err))
 				return coin, false
 			}
 		} else {
-			if err := common.VerifyEd25519Coin(coin, addr, message, sign1, script); err != nil {
+			if err := common.VerifyEd25519Coin(network, addr, message, sign1, script); err != nil {
 				fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 				return coin, false
 			}
@@ -209,17 +194,17 @@ func handle(i int, line string, off int) (coin string, success bool) {
 			return coin, false
 		}
 	case common.UTXOCoinType:
-		if err := common.VerifyUtxoCoin(coin, addr, message, sign1, sign2, script); err != nil {
+		if err := common.VerifyUtxoCoin(network, addr, message, sign1, sign2, script); err != nil {
 			fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 			return coin, false
 		}
 	case common.StarkCoinType:
-		if err := common.VerifyStarkCoin(coin, addr, message, sign1, script); err != nil {
+		if err := common.VerifyStarkCoin(network, addr, message, sign1, script); err != nil {
 			fmt.Println(fmt.Sprintf("Fail to verify address %s signature.The line %d  has error:%s.", addr, i+1, err))
 			return coin, false
 		}
 	default:
-		fmt.Println(fmt.Sprintf("Fail to verify address %s signature. Invaild coin type:%s", addr, coin))
+		fmt.Println(fmt.Sprintf("Fail to verify address %s signature. Invaild coin type:%s", addr, network))
 		return coin, false
 	}
 	return coin, true
@@ -265,7 +250,7 @@ func AddressVerify(cmd *cobra.Command, args []string) {
 			if flag == 1 {
 				flag--
 				// Resolve the detail-section column layout from its header.
-				off = detectFormatOffset(strings.Split(temp, ","))
+				off = common.DetectPorFormatOffset(strings.Split(temp, ","))
 			}
 			continue
 		}

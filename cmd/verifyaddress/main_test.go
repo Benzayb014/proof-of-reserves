@@ -10,18 +10,6 @@ const (
 	ethSig  = "0x07f19879aa28d51c97cddfdfecffe7ed96525545d041aee4f4386b0bf4c1a26924b637fb02ccbb97305c13daa51a0f50b8896fb25ecbaf60020cde920d227a221b"
 )
 
-// FR-6: format is detected from the header — a "Type" column marks the 12-column layout.
-func TestDetectFormatOffset(t *testing.T) {
-	oldHeader := []string{"coin", "Network", "Snapshot Height", "address", "amount", "message", "signature1", "signature2", "redeem script/ public key", " eoa1", " eoa2"}
-	if got := detectFormatOffset(oldHeader); got != 0 {
-		t.Errorf("legacy header offset = %d, want 0", got)
-	}
-	newHeader := []string{"coin", "Type", "Network", "Snapshot Height", "address", "amount", "message", "signature1", "signature2", "redeem script/public key", "EOA1", "EOA2"}
-	if got := detectFormatOffset(newHeader); got != 1 {
-		t.Errorf("12-column header offset = %d, want 1", got)
-	}
-}
-
 // FR-6 / AC-1: the same ETH row verifies under both the legacy 11-column layout (off=0) and the
 // new 12-column layout with a Type column inserted after coin (off=1), proving the header-adaptive
 // column mapping selects the right fields in both formats.
