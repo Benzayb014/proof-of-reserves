@@ -6,6 +6,7 @@ func TestNetworkTypeSamples(t *testing.T) {
 	cases := []struct{ network, want string }{
 		{"ETH", EvmCoinTye}, {"eth-arbitrum", EvmCoinTye}, {"ARBITRUM", EvmCoinTye},
 		{"XLAYER", EvmCoinTye}, {"FEVM", EvmCoinTye}, {"ETC", EvmCoinTye},
+		{"ETH-ROBINHOOD", EvmCoinTye},
 		{"BTC", UTXOCoinType}, {"BCHN", UTXOCoinType}, {"ZCASH", UTXOCoinType},
 		{"TRON", TrxCoinType}, {"TRX", TrxCoinType},
 		{"OKC", EcdsaCoinType}, {"OKT", EcdsaCoinType}, {"AELF", EcdsaCoinType},

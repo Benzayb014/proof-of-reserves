@@ -73,6 +73,7 @@ var (
 		"BASE": EvmCoinTye, "ETH_BASE": EvmCoinTye, "ETH_LINEA": EvmCoinTye,
 		"ZKSYNC2": EvmCoinTye, "ETH_ZKSYNC2": EvmCoinTye, "ETH_ZKSYNC": EvmCoinTye,
 		"POLYGON": EvmCoinTye, "POLYGON_ZKEVM": EvmCoinTye,
+		"ETH_ROBINHOOD": EvmCoinTye,
 		"XLAYER": EvmCoinTye, "OKB_X1": EvmCoinTye, "OKB_X1_TEST": EvmCoinTye,
 		"AVAXC": EvmCoinTye, "BSC": EvmCoinTye, "BNB_BSC": EvmCoinTye, "OP_BNB": EvmCoinTye,
 		"CFX_EVM": EvmCoinTye, "STORY": EvmCoinTye, "IP_STORY": EvmCoinTye,
